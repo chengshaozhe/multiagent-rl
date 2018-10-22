@@ -80,9 +80,9 @@ class ActorNetwork:
 
         x = self.network_builder(obs)
         x = tf.layers.dense(x, self.action_size, kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3))
-        x = tf.nn.tanh(x)
+        action_prob = tf.nn.tanh(x)
 
-     	return x
+     	return action_prob
 
  class CriticNetwork:
 
@@ -160,14 +160,15 @@ class ActorNetwork:
 
         x = self.network_builder(obs)
         x = tf.layers.dense(x, self.action_size, kernel_initializer=tf.random_uniform_initializer(minval=-3e-3, maxval=3e-3))
-        x = tf.nn.tanh(x)
+        action_value = tf.nn.tanh(x)
 
-     	return x
+     	return action_value
 
 
 
 def train(sess, env, actor, critic, actor_noise):
-    actor.update_target_network()
+	pass
+
 
 
 class ReplayBuffer:
