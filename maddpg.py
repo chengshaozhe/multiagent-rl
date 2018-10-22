@@ -14,6 +14,15 @@ class ActorNetwork:
         self.state_size = state_size
         self.action_size = action_size
 
+        self.state_input, self.action_output, self.net, self.is_training = self.create_network(
+            state_size, action_size)
+
+		self.target_state_input, self.target_action_output, self.target_update, self.target_is_training = self.create_target_network(
+		    state_dim, action_dim, self.net)
+
+		self.sess.run(tf.initialize_all_variables())
+        self.update_target()
+
     def create_network(self, state_size, action_size):
         layer1_size = LAYER1_SIZE
         layer2_size = LAYER2_SIZE
@@ -63,6 +72,9 @@ class ActorNetwork:
             tf.matmul(layer2_bn, target_net[4]) + target_net[5])
 
         return state_input, action_output, target_update, is_training
+
+    def update_target(self):
+    	self.sess.run(self.target_update)
 
      def __call__(self, obs):
 
