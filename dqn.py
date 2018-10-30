@@ -270,9 +270,9 @@ if __name__ == '__main__':
             if done:
                 break
 
-        if time % 10 == 0:
-            module_path = os.path.dirname(os.path.abspath(__file__))
-            data_path = os.path.join(module_path, "save")
-            name = str(sheep_states) + str(time) + '.h5'
-            weight_path = os.path.join(data_path, name)
-            agent.save(weight_path)
+            if time % 10 == 0:
+                module_path = os.path.dirname(os.path.abspath(__file__))
+                data_path = os.path.join(module_path, "save")
+                name = str(sheep_states) + str(time) + '.h5'
+                weight_path = os.path.join(data_path, name)
+                agent.save(weight_path)
