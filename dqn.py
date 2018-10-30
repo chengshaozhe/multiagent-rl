@@ -1,13 +1,15 @@
 import tensorflow as tf
+# from tensorflow import keras
 import numpy as np
 from viz import *
 from reward import *
 import random
 from collections import deque
+import os
+
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
-import os
 
 
 class GridWorld():
@@ -140,6 +142,19 @@ def state_to_image_array(env, wolf_states, sheep_states, obstacle_states):
     return image_array
 
 
+def getReward(s, a, env=None, const=-1, is_terminal=None):
+    return const + sum(map(lambda f: env.features[f][s], env.features))
+
+
+def physics(s, a, is_valid=None):
+
+    s_n = tuple(map(sum, zip(s, a)))
+
+    if is_valid(s_n):
+        return s_n
+    return s
+
+
 class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
@@ -197,25 +212,19 @@ class DQNAgent:
     def save(self, name):
         self.model.save_weights(name)
 
-
-def getReward(s, a, env=None, const=-1, is_terminal=None):
-    return const + sum(map(lambda f: env.features[f][s], env.features))
-
-
-def physics(s, a, is_valid=None):
-
-    s_n = tuple(map(sum, zip(s, a)))
-
-    if is_valid(s_n):
-        return s_n
-    return s
+    def __call__(state):
+        if np.random.rand() <= self.epsilon:
+            return random.randrange(self.action_size)
+        act_values = self.model.predict(state)
+        action_index = np.argmax(act_values[0])
+        return action_index
 
 
 if __name__ == '__main__':
-    env = GridWorld("test", nx=10, ny=10)
+    env = GridWorld("test", nx=20, ny=20)
 
     sheep_states = [(5, 5)]
-    obstacle_states = [(7, 5), (5, 2)]
+    obstacle_states = []
 
     env.add_obstacles(obstacle_states)
     env.add_terminals(sheep_states)
@@ -230,6 +239,7 @@ if __name__ == '__main__':
     action_size = len(A)
 
     num_opisodes = 100
+    batch_size = 128
     for e in range(num_opisodes):
 
         wolf_state = random.choice(S)
@@ -258,7 +268,7 @@ if __name__ == '__main__':
             next_state_img = state_to_image_array(env,
                                                   [wolf_next_state], sheep_states, obstacle_states)
 
-            # plt.pause(0.1)
+            plt.pause(0.1)
 
             next_state_img = np.reshape(next_state_img, [1, state_size])
 
@@ -269,6 +279,9 @@ if __name__ == '__main__':
 
             if done:
                 break
+
+            if len(agent.memory) > batch_size:
+                loss = agent.replay(batch_size)
 
             if time % 10 == 0:
                 module_path = os.path.dirname(os.path.abspath(__file__))
