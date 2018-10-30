@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
-plt.ion()
+# plt.ion()
+plt.ioff()
 import matplotlib as mp
 
 # color_set = ('g', 'r', 'c', 'm', 'y', 'k', 'w', 'b')

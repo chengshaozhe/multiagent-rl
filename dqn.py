@@ -7,6 +7,7 @@ from collections import deque
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
+import os
 
 
 class GridWorld():
@@ -236,7 +237,7 @@ if __name__ == '__main__':
         state_img = state_to_image_array(env,
                                          [wolf_state], sheep_states, obstacle_states)
 
-        plt.pause(0.1)
+        # plt.pause(0.1)
 
         state_size = state_img.flatten().shape[0]
 
@@ -257,7 +258,7 @@ if __name__ == '__main__':
             next_state_img = state_to_image_array(env,
                                                   [wolf_next_state], sheep_states, obstacle_states)
 
-            plt.pause(0.1)
+            # plt.pause(0.1)
 
             next_state_img = np.reshape(next_state_img, [1, state_size])
 
@@ -269,5 +270,9 @@ if __name__ == '__main__':
             if done:
                 break
 
-        if time % 100 == 0:
-            agent.save("./save/cartpole-dqn.h5")
+        if time % 10 == 0:
+            module_path = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(module_path, "save")
+            name = str(sheep_states) + str(time) + '.h5'
+            weight_path = os.path.join(data_path, name)
+            agent.save(weight_path)
