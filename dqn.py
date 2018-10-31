@@ -171,19 +171,13 @@ class DQNAgent:
         model = Sequential()
         model.add(Dense(24, input_dim=self.state_size, activation='relu'))
         model.add(Dense(24, activation='relu'))
-        model.add(Dense(self.action_size, activation='linear'))
+        model.add(Dense(self.action_size, activation='softmax'))
         model.compile(loss='mse',
                       optimizer=Adam(lr=self.learning_rate))
         return model
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
-
-    def act(self, state):
-        if np.random.rand() <= self.epsilon:
-            return random.randrange(self.action_size)
-        act_values = self.model.predict(state)
-        return np.argmax(act_values[0])
 
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
@@ -206,32 +200,35 @@ class DQNAgent:
             self.epsilon *= self.epsilon_decay
         return loss
 
+    def act(self, state):
+        if np.random.rand() <= self.epsilon:
+            return random.randrange(self.action_size)
+        act_values = self.model.predict(state)
+        return np.argmax(act_values[0])
+
     def load(self, name):
         self.model.load_weights(name)
 
     def save(self, name):
         self.model.save_weights(name)
 
-    def __call__(state):
+    def __call__(self, state):
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
-        act_values = self.model.predict(state)
-        action_index = np.argmax(act_values[0])
+        action_values = self.model.predict(state)
+        action_index = np.argmax(action_values[0])
         return action_index
 
 
 if __name__ == '__main__':
     env = GridWorld("test", nx=20, ny=20)
-
     sheep_states = [(5, 5)]
     obstacle_states = []
-
     env.add_obstacles(obstacle_states)
     env.add_terminals(sheep_states)
 
     obstacles = {s: -10 for s in obstacle_states}
     sheep = {s: 10 for s in sheep_states}
-
     env.add_feature_map("sheep", sheep, default=0)
 
     S = tuple(it.product(range(env.nx), range(env.ny)))
@@ -239,44 +236,27 @@ if __name__ == '__main__':
     action_size = len(A)
 
     num_opisodes = 100
-    batch_size = 128
+    batch_size = 64
     for e in range(num_opisodes):
-
         wolf_state = random.choice(S)
-
         state_img = state_to_image_array(env,
                                          [wolf_state], sheep_states, obstacle_states)
-
         # plt.pause(0.1)
-
         state_size = state_img.flatten().shape[0]
-
         agent = DQNAgent(state_size, action_size)
-
         for time in range(500):
-
             action_index = agent.act(state_img)
-
             action = A[action_index]
-
             wolf_next_state = physics(wolf_state, action, env.is_state_valid)
-
             reward = getReward(wolf_next_state, action, env)
-
             done = wolf_next_state in env.terminals
-
             next_state_img = state_to_image_array(env,
                                                   [wolf_next_state], sheep_states, obstacle_states)
-
             plt.pause(0.1)
-
             next_state_img = np.reshape(next_state_img, [1, state_size])
-
             agent.remember(state_img, action, reward, next_state_img, done)
-
             wolf_state = wolf_next_state
             state_img = next_state_img
-
             if done:
                 break
 
