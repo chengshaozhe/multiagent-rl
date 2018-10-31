@@ -245,18 +245,23 @@ if __name__ == '__main__':
         state_size = state_img.flatten().shape[0]
         agent = DQNAgent(state_size, action_size)
         for time in range(500):
-            action_index = agent.act(state_img)
-            action = A[action_index]
-            wolf_next_state = physics(wolf_state, action, env.is_state_valid)
+            state_img = np.reshape(state_img, [1, state_size])
+            action = agent.act(state_img)
+            action_grid = A[action]
+            wolf_next_state = physics(
+                wolf_state, action_grid, env.is_state_valid)
+
             reward = getReward(wolf_next_state, action, env)
             done = wolf_next_state in env.terminals
             next_state_img = state_to_image_array(env,
                                                   [wolf_next_state], sheep_states, obstacle_states)
             plt.pause(0.1)
             next_state_img = np.reshape(next_state_img, [1, state_size])
+
             agent.remember(state_img, action, reward, next_state_img, done)
             wolf_state = wolf_next_state
             state_img = next_state_img
+
             if done:
                 break
 
@@ -264,8 +269,12 @@ if __name__ == '__main__':
                 loss = agent.replay(batch_size)
 
             if time % 10 == 0:
-                module_path = os.path.dirname(os.path.abspath(__file__))
-                data_path = os.path.join(module_path, "save")
-                name = str(sheep_states) + str(time) + '.h5'
-                weight_path = os.path.join(data_path, name)
-                agent.save(weight_path)
+                print("episode: {}/{}, time: {}, loss: {:.4f}"
+                      .format(e, num_opisodes, time, loss))
+
+        if e % 10 == 0:
+            module_path = os.path.dirname(os.path.abspath(__file__))
+            data_path = os.path.join(module_path, "save")
+            name = str(sheep_states) + str(e) + '.h5'
+            weight_path = os.path.join(data_path, name)
+            agent.save(weight_path)
