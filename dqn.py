@@ -6,6 +6,7 @@ from reward import *
 import random
 from collections import deque
 import os
+from PIL import Image
 
 from keras.models import Sequential
 from keras.layers import Dense
@@ -138,6 +139,9 @@ def state_to_image_array(env, wolf_states, sheep_states, obstacle_states):
     image = np.fromstring(fig.canvas.tostring_rgb(),
                           dtype=np.uint8, sep='')
     image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    pil_im = Image.fromarray(image_array)
+
+    image_array = np.array(pil_im.resize((84, 84), 3))
 
     return image_array
 
