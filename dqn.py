@@ -272,9 +272,9 @@ if __name__ == '__main__':
             if len(agent.memory) > batch_size:
                 loss = agent.replay(batch_size)
 
-            if time % 10 == 0:
-                print("episode: {}/{}, time: {}, loss: {:.4f}"
-                      .format(e, num_opisodes, time, loss))
+                if time % 10 == 0:
+                    print("episode: {}/{}, time: {}, loss: {:.4f}"
+                          .format(e, num_opisodes, time, loss))
 
         if e % 10 == 0:
             module_path = os.path.dirname(os.path.abspath(__file__))
