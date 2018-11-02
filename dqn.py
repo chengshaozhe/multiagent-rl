@@ -1,5 +1,4 @@
 import tensorflow as tf
-# from tensorflow import keras
 import numpy as np
 from viz import *
 from reward import *
@@ -8,9 +7,10 @@ from collections import deque
 import os
 from PIL import Image
 
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.optimizers import Adam
+# from tensorflow import keras
+# from keras.models import Sequential
+# from keras.layers import Dense
+# from keras.optimizers import Adam
 
 
 class GridWorld():
@@ -176,12 +176,14 @@ class DQNAgent:
         self.model = self._build_model()
 
     def _build_model(self):
-        model = Sequential()
-        model.add(Dense(32, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(32, activation='relu'))
-        model.add(Dense(self.action_size, activation='softmax'))
+        model = tf.keras.Sequential()
+        model.add(tf.keras.layers.Dense(
+            32, input_dim=self.state_size, activation='relu'))
+        model.add(tf.keras.layers.Dense(32, activation='relu'))
+        model.add(tf.keras.layers.Dense(
+            self.action_size, activation='softmax'))
         model.compile(loss='mse',
-                      optimizer=Adam(lr=self.learning_rate))
+                      optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate))
         return model
 
     def remember(self, state, action, reward, next_state, done):
@@ -273,8 +275,8 @@ if __name__ == '__main__':
             done = wolf_next_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheep, obstacles)
-            plt.pause(0.1)
-            plt.close('all')
+            # plt.pause(0.1)
+            # plt.close('all')
 
             next_state_img = np.reshape(next_state_img, [1, state_size])
 
