@@ -5,52 +5,59 @@ import itertools as it
 import operator as op
 import matplotlib.pyplot as plt
 
+
 def signod_barrier(x, c=0, m=1, s=1):
-    expt_term = np.exp(-s*(x-c))
-    result =  m/(1.0+expt_term)
+    expt_term = np.exp(-s * (x - c))
+    result = m / (1.0 + expt_term)
     return result
+
 
 def barrier_feature(s, bound=0, dim=0, sign=1, barrier_func=None):
     s_arr = np.asarray(s)
-    x = (s_arr[:, dim]-bound)*sign
+    x = (s_arr[:, dim] - bound) * sign
     return -barrier_func(x)
+
 
 def barrier_punish(s, a, barrier_func=None, upper=None, lower=None):
     sn_arr = np.asarray(s)
     to_upper = sn_arr - upper
     to_lower = lower - sn_arr
     punishment = barrier_func(np.hstack([to_upper, to_lower]))
-    return -1*np.sum(punishment, axis=-1)
+    return -1 * np.sum(punishment, axis=-1)
+
 
 def l2_norm(s0, s1, rho=1):
-    diff = (np.asarray(s0) -  np.asarray(s1))*rho
+    diff = (np.asarray(s0) - np.asarray(s1)) * rho
     return np.linalg.norm(diff)
 
-def distance_punish(s,a, goal=None, dist_func=l2_norm, unit=1):
-    norm = dist_func(s, goal, rho=unit)
-    return -100/(norm)
 
-def distance_mean_reward(s,a, goal=None, dist_func=l2_norm, unit=1):
-    norm1 = dist_func(s[:2], goal[0], rho=unit)
-    norm2 = dist_func(s[:2], goal[1], rho=unit)
-    norm = (norm1+norm2)/2
-    return 100/norm
-
-def sigmoid_distance_punish(s,a, goal=None, dist_func=l2_norm, unit=1):
+def distance_punish(s, a, goal=None, dist_func=l2_norm, unit=1):
     norm = dist_func(s, goal, rho=unit)
-    sigmod = (1.0+np.exp(-norm))
-    return -sigmod/0.01
+    return -100 / (norm)
+
+
+def distance_reward(s, a, goal=None, dist_func=l2_norm, unit=1):
+    norm = dist_func(s, goal, rho=unit)
+    return 100 / norm
+
+
+def sigmoid_distance_punish(s, a, goal=None, dist_func=l2_norm, unit=1):
+    norm = dist_func(s, goal, rho=unit)
+    sigmod = (1.0 + np.exp(-norm))
+    return -sigmod / 0.01
 
 
 def sum_rewards(s=(), a=(), func_lst=[], is_terminal=None):
     reward = sum([f(s, a) for f in func_lst])
     return reward
 
+
 def test_barrier_function():
     x = np.arange(-10, 10, 0.1)
     y = signod_barrier(x, m=100, s=5)
     plt.plot(x, y, 'k')
     plt.pause(0)
+
 
 def test_barrier_reward():
     upper = np.array([10, 10])
@@ -61,17 +68,15 @@ def test_barrier_reward():
     XX, YY = np.meshgrid(X, Y)
     S = np.vstack([XX.flatten(), YY.flatten()]).T
     barrier_func = ft.partial(signod_barrier, c=0, m=100, s=10)
-    R = barrier_punish(S,0, barrier_func=barrier_func,
-                                upper=upper, lower=lower)
+    R = barrier_punish(S, 0, barrier_func=barrier_func,
+                       upper=upper, lower=lower)
     Z = R.reshape(XX.shape)
     plt.imshow(Z)
     plt.pause(0)
 
 
-
-
 # test = distance_punish_sigmod(s=(3,4),a = (1,0), goal=(6,6),dist_func=l2_norm, unit=1)
-# print test 
+# print test
 
 # test_barrier_function()
 # test_barrier_reward()
@@ -91,10 +96,5 @@ def test_sigmoid_distance_punish():
     plt.pause(0)
 
 
-
-
-
 if __name__ == '__main__':
     test_sigmoid_distance_punish()
-
-

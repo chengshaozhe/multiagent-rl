@@ -123,16 +123,16 @@ class GridWorld():
         return ax, ax_images
 
 
-def state_to_image_array(env, wolf_states, sheep_states, obstacle_states):
-    wolf = {s: -100 for s in wolf_states}
-    sheep = {s: 500 for s in sheep_states}
-    obstacles = {s: -100 for s in obstacle_states}
+def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
+    hit_wall_punish = -100
+    wolf = {s: hit_wall_punish for s in wolf_states}
     env.add_feature_map("wolf", wolf, default=0)
     env.add_feature_map("sheep", sheep, default=0)
     env.add_feature_map("obstacle", obstacles, default=0)
 
     ax, _ = env.draw(features=("wolf", "sheep", "obstacle"), colors={
                      'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
+
     fig = ax.get_figure()
     fig.canvas.draw()
 
@@ -141,15 +141,17 @@ def state_to_image_array(env, wolf_states, sheep_states, obstacle_states):
     image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     pil_im = Image.fromarray(image_array)
 
-    # image_size = ((84, 84), 3)
-    image_array = np.array(pil_im.resize((84, 84), 3))
-
-    print image_array.shape
+    image_array = np.array(pil_im.resize(image_size, 3))
     return image_array
 
 
-def get_reward(s, a, env=None, const=-10, is_terminal=None):
+def grid_reward(s, a, env=None, const=-10, is_terminal=None):
     return const + sum(map(lambda f: env.features[f][s], env.features))
+
+
+def linear_reward():
+
+    return reward
 
 
 def physics(s, a, is_valid=None):
@@ -233,9 +235,8 @@ if __name__ == '__main__':
     env.add_obstacles(obstacle_states)
     env.add_terminals(sheep_states)
 
-    obstacles = {s: -100 for s in obstacle_states}
     sheep = {s: 500 for s in sheep_states}
-    env.add_feature_map("sheep", sheep, default=0)
+    obstacles = {s: -100 for s in obstacle_states}
 
     S = tuple(it.product(range(env.nx), range(env.ny)))
     A = ((1, 0), (0, 1), (-1, 0), (0, -1))
@@ -243,10 +244,11 @@ if __name__ == '__main__':
 
     num_opisodes = 100
     batch_size = 256
+    image_size = (84, 84)
     for e in range(num_opisodes):
         wolf_state = random.choice(S)
-        state_img = state_to_image_array(env,
-                                         [wolf_state], sheep_states, obstacle_states)
+        state_img = state_to_image_array(env, image_size,
+                                         [wolf_state], sheep, obstacles)
         # plt.pause(0.1)
         state_size = state_img.flatten().shape[0]
 
@@ -258,10 +260,19 @@ if __name__ == '__main__':
             wolf_next_state = physics(
                 wolf_state, action_grid, env.is_state_valid)
 
-            reward = get_reward(wolf_next_state, action, env)
+            grid_reward = ft.partial(grid_reward, env=env, const=-10)
+            to_sheep_reward = ft.partial(
+                distance_reward, goal=sheep_states, unit=1)
+            func_lst = [grid_reward, to_sheep_reward]
+
+            get_reward = ft.partial(sum_rewards, func_lst=func_lst)
+
+            reward = get_reward(wolf_next_state, action)
+            print reward
+
             done = wolf_next_state in env.terminals
-            next_state_img = state_to_image_array(env,
-                                                  [wolf_next_state], sheep_states, obstacle_states)
+            next_state_img = state_to_image_array(env, image_size,
+                                                  [wolf_next_state], sheep, obstacles)
             plt.pause(0.1)
             plt.close('all')
 
