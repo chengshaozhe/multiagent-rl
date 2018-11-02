@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
             module_path = os.path.dirname(os.path.abspath(__file__))
             data_path = os.path.join(module_path, "save/save")
-            name = str(sheep_states) + str(10) + '.h5'
+            name = str(sheep_states) + str(50) + '.h5'
             weight_path = os.path.join(data_path, name)
             agent.load(weight_path)
 
@@ -85,9 +85,8 @@ if __name__ == '__main__':
             next_state_img = state_to_image_array(env,
                                                   [wolf_next_state], sheep_states, obstacle_states)
             plt.pause(0.1)
+            plt.close('all')
             next_state_img = np.reshape(next_state_img, [1, state_size])
-            wolf_state = wolf_next_state
-            state_img = next_state_img
 
             state_value = agent.get_max_value(state_img)
 
@@ -111,3 +110,6 @@ if __name__ == '__main__':
             state_value_ground_true = V[wolf_state]
 
             print state_value, state_value_ground_true
+
+            wolf_state = wolf_next_state
+            state_img = next_state_img

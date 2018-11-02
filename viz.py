@@ -1,15 +1,15 @@
 # for linux ssh: set matplotlib to not use the Xwindows backend.
 import matplotlib
-# matplotlib.use('Agg')
+matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
 import numpy as np
-plt.ion()
-# plt.ioff()
+# plt.ion()
+plt.ioff()
 import matplotlib as mp
 
-# color_set = ('g', 'r', 'c', 'm', 'y', 'k', 'w', 'b')
-color_set = ('r', 'g', 'b', 'y', 'm', 'c', 'w', 'b')
+color_set = ('g', 'r', 'c', 'm', 'y', 'k', 'w', 'b')
+# color_set = ('r', 'g', 'b', 'y', 'm', 'c', 'w', 'b')
 
 
 def create_color_map(input_colors, bounds=(0, 0.5, 1), bad_color='white'):

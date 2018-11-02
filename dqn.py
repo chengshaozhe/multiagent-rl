@@ -124,9 +124,9 @@ class GridWorld():
 
 
 def state_to_image_array(env, wolf_states, sheep_states, obstacle_states):
-    wolf = {s: 10 for s in wolf_states}
-    sheep = {s: 10 for s in sheep_states}
-    obstacles = {s: -10 for s in obstacle_states}
+    wolf = {s: -100 for s in wolf_states}
+    sheep = {s: 500 for s in sheep_states}
+    obstacles = {s: -100 for s in obstacle_states}
     env.add_feature_map("wolf", wolf, default=0)
     env.add_feature_map("sheep", sheep, default=0)
     env.add_feature_map("obstacle", obstacles, default=0)
@@ -141,12 +141,14 @@ def state_to_image_array(env, wolf_states, sheep_states, obstacle_states):
     image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     pil_im = Image.fromarray(image_array)
 
+    # image_size = ((84, 84), 3)
     image_array = np.array(pil_im.resize((84, 84), 3))
 
+    print image_array.shape
     return image_array
 
 
-def getReward(s, a, env=None, const=-1, is_terminal=None):
+def get_reward(s, a, env=None, const=-10, is_terminal=None):
     return const + sum(map(lambda f: env.features[f][s], env.features))
 
 
@@ -173,8 +175,8 @@ class DQNAgent:
 
     def _build_model(self):
         model = Sequential()
-        model.add(Dense(24, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(24, activation='relu'))
+        model.add(Dense(32, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(32, activation='relu'))
         model.add(Dense(self.action_size, activation='softmax'))
         model.compile(loss='mse',
                       optimizer=Adam(lr=self.learning_rate))
@@ -225,14 +227,14 @@ class DQNAgent:
 
 
 if __name__ == '__main__':
-    env = GridWorld("test", nx=20, ny=20)
+    env = GridWorld("test", nx=21, ny=21)
     sheep_states = [(5, 5)]
     obstacle_states = []
     env.add_obstacles(obstacle_states)
     env.add_terminals(sheep_states)
 
-    obstacles = {s: -10 for s in obstacle_states}
-    sheep = {s: 10 for s in sheep_states}
+    obstacles = {s: -100 for s in obstacle_states}
+    sheep = {s: 500 for s in sheep_states}
     env.add_feature_map("sheep", sheep, default=0)
 
     S = tuple(it.product(range(env.nx), range(env.ny)))
@@ -240,26 +242,29 @@ if __name__ == '__main__':
     action_size = len(A)
 
     num_opisodes = 100
-    batch_size = 64
+    batch_size = 256
     for e in range(num_opisodes):
         wolf_state = random.choice(S)
         state_img = state_to_image_array(env,
                                          [wolf_state], sheep_states, obstacle_states)
         # plt.pause(0.1)
         state_size = state_img.flatten().shape[0]
+
         agent = DQNAgent(state_size, action_size)
-        for time in range(500):
+        for time in range(1000):
             state_img = np.reshape(state_img, [1, state_size])
             action = agent.act(state_img)
             action_grid = A[action]
             wolf_next_state = physics(
                 wolf_state, action_grid, env.is_state_valid)
 
-            reward = getReward(wolf_next_state, action, env)
+            reward = get_reward(wolf_next_state, action, env)
             done = wolf_next_state in env.terminals
             next_state_img = state_to_image_array(env,
                                                   [wolf_next_state], sheep_states, obstacle_states)
             plt.pause(0.1)
+            plt.close('all')
+
             next_state_img = np.reshape(next_state_img, [1, state_size])
 
             agent.remember(state_img, action, reward, next_state_img, done)
