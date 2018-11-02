@@ -1,11 +1,11 @@
 import tensorflow as tf
 import numpy as np
-from viz import *
-from reward import *
 import random
 from collections import deque
 import os
 from PIL import Image
+from viz import *
+from reward import *
 
 # from tensorflow import keras
 # from keras.models import Sequential
@@ -270,7 +270,7 @@ if __name__ == '__main__':
             get_reward = ft.partial(sum_rewards, func_lst=func_lst)
 
             reward = get_reward(wolf_next_state, action)
-            print reward
+            print(reward)
 
             done = wolf_next_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,

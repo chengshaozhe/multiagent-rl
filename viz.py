@@ -11,6 +11,23 @@ import matplotlib as mp
 color_set = ('g', 'r', 'c', 'm', 'y', 'k', 'w', 'b')
 # color_set = ('r', 'g', 'b', 'y', 'm', 'c', 'w', 'b')
 
+try:
+    dict.iteritems
+except AttributeError:
+    # Python 3
+    def itervalues(d):
+        return iter(d.values())
+
+    def iteritems(d):
+        return iter(d.items())
+else:
+    # Python 2
+    def itervalues(d):
+        return d.itervalues()
+
+    def iteritems(d):
+        return d.iteritems()
+
 
 def create_color_map(input_colors, bounds=(0, 0.5, 1), bad_color='white'):
     assert set(input_colors) < set(color_set)
@@ -53,7 +70,7 @@ def V_array_to_dict(V_arr, S=()):
 
 
 def dict_to_array(V):
-    states, values = zip(*((s, v) for (s, v) in V.iteritems()))
+    states, values = zip(*((s, v) for (s, v) in V.items()))
     row_index, col_index = zip(*states)
     num_row = max(row_index) + 1
     num_col = max(col_index) + 1
