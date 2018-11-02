@@ -244,7 +244,7 @@ if __name__ == '__main__':
     A = ((1, 0), (0, 1), (-1, 0), (0, -1))
     action_size = len(A)
 
-    num_opisodes = 100
+    num_opisodes = 101
     batch_size = 256
     image_size = (84, 84)
     for e in range(num_opisodes):
@@ -297,6 +297,6 @@ if __name__ == '__main__':
         if e % 10 == 0:
             module_path = os.path.dirname(os.path.abspath(__file__))
             data_path = os.path.join(module_path, "save")
-            name = str(sheep_states) + str(e) + '.h5'
+            name = str(sheep_states) + '_episode_' + str(e) + '.h5'
             weight_path = os.path.join(data_path, name)
             agent.save(weight_path)

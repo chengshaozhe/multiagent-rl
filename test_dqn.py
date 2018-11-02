@@ -73,7 +73,7 @@ if __name__ == '__main__':
 
             module_path = os.path.dirname(os.path.abspath(__file__))
             data_path = os.path.join(module_path, "save/save")
-            name = str(sheep_states) + str(50) + '.h5'
+            name = str(sheep_states) + '_episode_' + str(50) + '.h5'
             weight_path = os.path.join(data_path, name)
             agent.load(weight_path)
 
