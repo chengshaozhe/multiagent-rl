@@ -265,6 +265,7 @@ if __name__ == '__main__':
 
     num_opisodes = 501
     batch_size = 256
+    done = False
 
     for e in range(num_opisodes):
         wolf_state = random.choice(S)
