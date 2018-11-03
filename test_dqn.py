@@ -25,8 +25,8 @@ class DQN:
 
     def _build_model(self):
         model = Sequential()
-        model.add(Dense(24, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(24, activation='relu'))
+        model.add(Dense(32, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(32, activation='relu'))
         model.add(Dense(self.action_size, activation='softmax'))
         model.compile(loss='mse',
                       optimizer=Adam(lr=self.learning_rate))
@@ -72,7 +72,7 @@ if __name__ == '__main__':
             agent = DQN(state_size, action_size)
 
             module_path = os.path.dirname(os.path.abspath(__file__))
-            data_path = os.path.join(module_path, "save/save")
+            data_path = os.path.join(module_path, "linux/v100/save")
             name = str(sheep_states) + '_episode_' + str(50) + '.h5'
             weight_path = os.path.join(data_path, name)
             agent.load(weight_path)
