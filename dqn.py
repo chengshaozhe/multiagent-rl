@@ -1,4 +1,5 @@
 import tensorflow as tf
+# from tensorflow import keras
 import numpy as np
 import random
 from collections import deque
@@ -7,7 +8,6 @@ from PIL import Image
 from viz import *
 from reward import *
 
-# from tensorflow import keras
 # from keras.models import Sequential
 # from keras.layers import Dense
 # from keras.optimizers import Adam
@@ -255,16 +255,23 @@ if __name__ == '__main__':
     A = ((1, 0), (0, 1), (-1, 0), (0, -1))
     action_size = len(A)
 
+    image_size = (84, 84)
+    wolf_state = random.choice(S)
+    state_img = state_to_image_array(env, image_size,
+                                     [wolf_state], sheep, obstacles)
+    state_size = state_img.flatten().shape[0]
+
+    agent = DQNAgent(state_size, action_size)
+
     num_opisodes = 501
     batch_size = 256
-    image_size = (84, 84)
+
     for e in range(num_opisodes):
         wolf_state = random.choice(S)
         state_img = state_to_image_array(env, image_size,
                                          [wolf_state], sheep, obstacles)
         state_size = state_img.flatten().shape[0]
 
-        agent = DQNAgent(state_size, action_size)
         for time in range(500):
             state_img = np.reshape(state_img, [1, state_size])
             action = agent.act(state_img)
@@ -284,7 +291,7 @@ if __name__ == '__main__':
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheep, obstacles)
             # plt.pause(0.1)
-            # plt.close('all')
+            plt.close('all')
 
             next_state_img = np.reshape(next_state_img, [1, state_size])
 
