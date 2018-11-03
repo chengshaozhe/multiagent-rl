@@ -167,7 +167,7 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=2000)
+        self.memory = deque(maxlen=20000)
         self.gamma = 0.95    # discount rate
         self.epsilon = 1.0  # exploration rate
         self.epsilon_min = 0.01
@@ -181,7 +181,7 @@ class DQNAgent:
             32, input_dim=self.state_size, activation='relu'))
         model.add(tf.keras.layers.Dense(32, activation='relu'))
         model.add(tf.keras.layers.Dense(
-            self.action_size, activation='softmax'))
+            self.action_size, activation='linear'))
         model.compile(loss='mse',
                       optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate))
         return model
@@ -191,20 +191,37 @@ class DQNAgent:
 
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
-        states, targets_f = [], []
+        states, targets_Q = [], []
         for state, action, reward, next_state, done in minibatch:
             target = reward
             if not done:
                 target = (reward + self.gamma *
                           np.amax(self.model.predict(next_state)[0]))
-            target_f = self.model.predict(state)
-            target_f[0][action] = target
-            # Filtering out states and targets for training
+            target_Q = self.model.predict(state)
+            target_Q[0][action] = target
+
             states.append(state[0])
-            targets_f.append(target_f[0])
-        history = self.model.fit(np.array(states), np.array(
-            targets_f), epochs=1, verbose=0)
-        # Keeping track of loss
+            targets_Q.append(target_Q[0])
+
+        states_mb = np.array(states)
+        targets_mb = np.array(targets_Q)
+
+        return states_mb, targets_mb
+
+    def process_minibatch(self, batch_size):
+        batch = random.sample(self.memory, batch_size)
+        target_Qs_batch = []
+
+        states_mb = np.array([each[0] for each in batch], ndmin=3)
+        actions_mb = np.array([each[1] for each in batch])
+        rewards_mb = np.array([each[2] for each in batch])
+        next_states_mb = np.array([each[3] for each in batch], ndmin=3)
+        dones_mb = np.array([each[4] for each in batch])
+
+        return states_mb, targets_mb
+
+    def train(self, states_mb, targets_mb):
+        history = self.model.fit(states_mb, targets_mb, epochs=1, verbose=0)
         loss = history.history['loss'][0]
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
@@ -270,7 +287,6 @@ if __name__ == '__main__':
             get_reward = ft.partial(sum_rewards, func_lst=func_lst)
 
             reward = get_reward(wolf_next_state, action)
-            print(reward)
 
             done = wolf_next_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
@@ -288,7 +304,8 @@ if __name__ == '__main__':
                 break
 
             if len(agent.memory) > batch_size:
-                loss = agent.replay(batch_size)
+                states_mb, targets_mb = agent.replay(batch_size)
+                loss = agent.train(states_mb, targets_mb)
 
                 if time % 10 == 0:
                     print("episode: {}/{}, time: {}, loss: {:.4f}"
