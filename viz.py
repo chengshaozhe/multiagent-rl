@@ -3,10 +3,10 @@ import matplotlib
 matplotlib.use('Agg')
 
 import matplotlib.pyplot as plt
-import numpy as np
 # plt.ion()
 plt.ioff()
 import matplotlib as mp
+import numpy as np
 
 color_set = ('g', 'r', 'c', 'm', 'y', 'k', 'w', 'b')
 # color_set = ('r', 'g', 'b', 'y', 'm', 'c', 'w', 'b')

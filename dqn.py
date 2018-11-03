@@ -97,7 +97,7 @@ class GridWorld():
         return {f: update_single_feature(f) for f in features}
 
     def draw(self, ax=None, ax_images={}, features=[], colors={},
-             masked_values={}, default_masked=0, show=True, save_to=''):
+             masked_values={}, default_masked=0, show=False, save_to=''):
 
         plt.cla()
         if ax:
@@ -149,11 +149,6 @@ def grid_reward(s, a, env=None, const=-10, is_terminal=None):
     return const + sum(map(lambda f: env.features[f][s], env.features))
 
 
-def linear_reward():
-
-    return reward
-
-
 def physics(s, a, is_valid=None):
 
     s_n = tuple(map(sum, zip(s, a)))
@@ -199,7 +194,6 @@ class DQNAgent:
                           np.amax(self.model.predict(next_state)[0]))
             target_Q = self.model.predict(state)
             target_Q[0][action] = target
-
             states.append(state[0])
             targets_Q.append(target_Q[0])
 
@@ -261,18 +255,17 @@ if __name__ == '__main__':
     A = ((1, 0), (0, 1), (-1, 0), (0, -1))
     action_size = len(A)
 
-    num_opisodes = 101
+    num_opisodes = 501
     batch_size = 256
     image_size = (84, 84)
     for e in range(num_opisodes):
         wolf_state = random.choice(S)
         state_img = state_to_image_array(env, image_size,
                                          [wolf_state], sheep, obstacles)
-        # plt.pause(0.1)
         state_size = state_img.flatten().shape[0]
 
         agent = DQNAgent(state_size, action_size)
-        for time in range(1000):
+        for time in range(500):
             state_img = np.reshape(state_img, [1, state_size])
             action = agent.act(state_img)
             action_grid = A[action]
@@ -287,7 +280,6 @@ if __name__ == '__main__':
             get_reward = ft.partial(sum_rewards, func_lst=func_lst)
 
             reward = get_reward(wolf_next_state, action)
-
             done = wolf_next_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheep, obstacles)
