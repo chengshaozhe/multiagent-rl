@@ -1,16 +1,16 @@
 import tensorflow as tf
-# from tensorflow import keras
 import numpy as np
 import random
 from collections import deque
+import functools as ft
 import os
 from PIL import Image
 from viz import *
 from reward import *
 
-# from keras.models import Sequential
-# from keras.layers import Dense
-# from keras.optimizers import Adam
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.optimizers import Adam
 
 
 class GridWorld():
@@ -124,10 +124,9 @@ class GridWorld():
 
 
 def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
-    hit_wall_punish = -100
-    wolf = {s: hit_wall_punish for s in wolf_states}
+    wolf = {s: 1 for s in wolf_states}
     env.add_feature_map("wolf", wolf, default=0)
-    env.add_feature_map("sheep", sheep, default=0)
+    env.add_feature_map("sheep", sheeps, default=0)
     env.add_feature_map("obstacle", obstacles, default=0)
 
     ax, _ = env.draw(features=("wolf", "sheep", "obstacle"), colors={
@@ -145,14 +144,19 @@ def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
     return image_array
 
 
-def grid_reward(s, a, env=None, const=-10, is_terminal=None):
-    return const + sum(map(lambda f: env.features[f][s], env.features))
+# def grid_reward(s, a, env=None, const=-10, is_terminal=None):
+#     return const + sum(map(lambda f: env.features[f][s], env.features))
+
+
+def grid_reward(s, a, env=None, const=-1):
+    goal_reward = 500 if s in env.terminals else const
+    obstacle_punish = - 100 if s in env.obstacles else 0
+
+    return goal_reward + obstacle_punish
 
 
 def physics(s, a, is_valid=None):
-
     s_n = tuple(map(sum, zip(s, a)))
-
     if is_valid(s_n):
         return s_n
     return s
@@ -162,56 +166,70 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=20000)
-        self.gamma = 0.95    # discount rate
-        self.epsilon = 1.0  # exploration rate
+        self.memory = deque(maxlen=2000)
+        self.gamma = 0.95
+        self.epsilon = 1.0
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.995
+        self.epsilon_decay = 0.99
         self.learning_rate = 0.001
         self.model = self._build_model()
+        self.target_model = self._build_model()
+        self.update_target_model()
+
+    # def _build_model(self):
+    #     model = tf.keras.Sequential()
+    #     model.add(tf.keras.layers.Dense(
+    #         32, input_dim=self.state_size, activation='relu'))
+    #     model.add(tf.keras.layers.Dense(32, activation='relu'))
+    #     model.add(tf.keras.layers.Dense(
+    #         self.action_size, activation='linear'))
+    #     model.compile(loss='mse',
+    #                   optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate))
+    #     return model
 
     def _build_model(self):
-        model = tf.keras.Sequential()
-        model.add(tf.keras.layers.Dense(
-            32, input_dim=self.state_size, activation='relu'))
-        model.add(tf.keras.layers.Dense(32, activation='relu'))
-        model.add(tf.keras.layers.Dense(
-            self.action_size, activation='linear'))
+        model = Sequential()
+        model.add(Dense(32, input_dim=self.state_size, activation='relu'))
+        model.add(Dense(32, activation='relu'))
+        model.add(Dense(self.action_size, activation='linear'))
         model.compile(loss='mse',
-                      optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate))
+                      optimizer=Adam(lr=self.learning_rate))
         return model
+
+    def update_target_model(self):
+        self.target_model.set_weights(self.model.get_weights())
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
+    def act(self, state):
+        if np.random.rand() <= self.epsilon:
+            return random.randrange(self.action_size)
+        action_values = self.model.predict(state)
+        action = np.argmax(action_values[0])
+        return action
+
+    def get_state_value(self, state):
+        action_values = self.model.predict(state)
+        state_value = np.amax(action_values[0])
+        return state_value
+
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
-        states, targets_Q = [], []
+        states, targets = [], []
         for state, action, reward, next_state, done in minibatch:
-            target = reward
-            if not done:
-                target = (reward + self.gamma *
-                          np.amax(self.model.predict(next_state)[0]))
-            target_Q = self.model.predict(state)
-            target_Q[0][action] = target
-            states.append(state[0])
-            targets_Q.append(target_Q[0])
+            target = self.model.predict(state)
+            if done:
+                target[0][action] = reward
+            else:
+                t = self.target_model.predict(next_state)[0]
+                target[0][action] = reward + self.gamma * np.amax(t)
+
+                states.append(state[0])
+                targets.append(target[0])
 
         states_mb = np.array(states)
-        targets_mb = np.array(targets_Q)
-
-        return states_mb, targets_mb
-
-    def process_minibatch(self, batch_size):
-        batch = random.sample(self.memory, batch_size)
-        target_Qs_batch = []
-
-        states_mb = np.array([each[0] for each in batch], ndmin=3)
-        actions_mb = np.array([each[1] for each in batch])
-        rewards_mb = np.array([each[2] for each in batch])
-        next_states_mb = np.array([each[3] for each in batch], ndmin=3)
-        dones_mb = np.array([each[4] for each in batch])
-
+        targets_mb = np.array(targets)
         return states_mb, targets_mb
 
     def train(self, states_mb, targets_mb):
@@ -220,12 +238,6 @@ class DQNAgent:
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
         return loss
-
-    def act(self, state):
-        if np.random.rand() <= self.epsilon:
-            return random.randrange(self.action_size)
-        act_values = self.model.predict(state)
-        return np.argmax(act_values[0])
 
     def load(self, name):
         self.model.load_weights(name)
@@ -237,62 +249,55 @@ class DQNAgent:
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         action_values = self.model.predict(state)
-        action_index = np.argmax(action_values[0])
-        return action_index
+        action_max_index = np.argmax(action_values[0])
+        return action_max_index
 
 
 if __name__ == '__main__':
-    env = GridWorld("test", nx=21, ny=21)
+    env = GridWorld("test", nx=11, ny=11)
     sheep_states = [(5, 5)]
     obstacle_states = []
     env.add_obstacles(obstacle_states)
     env.add_terminals(sheep_states)
 
-    sheep = {s: 500 for s in sheep_states}
+    sheeps = {s: 500 for s in sheep_states}
     obstacles = {s: -100 for s in obstacle_states}
 
     S = tuple(it.product(range(env.nx), range(env.ny)))
     A = ((1, 0), (0, 1), (-1, 0), (0, -1))
     action_size = len(A)
-
-    image_size = (84, 84)
-    wolf_state = random.choice(S)
-    state_img = state_to_image_array(env, image_size,
-                                     [wolf_state], sheep, obstacles)
-    state_size = state_img.flatten().shape[0]
-
+    image_size = (32, 32)
+    state_size = ft.reduce(lambda x, y: x * y, image_size) * 3
     agent = DQNAgent(state_size, action_size)
 
-    num_opisodes = 501
-    batch_size = 256
+    batch_size = 16
     done = False
+    num_opisodes = 1001
 
     for e in range(num_opisodes):
         wolf_state = random.choice(S)
         state_img = state_to_image_array(env, image_size,
-                                         [wolf_state], sheep, obstacles)
-        state_size = state_img.flatten().shape[0]
-
+                                         [wolf_state], sheeps, obstacles)
+        state_img = np.reshape(state_img, [1, state_size])
         for time in range(500):
-            state_img = np.reshape(state_img, [1, state_size])
             action = agent.act(state_img)
             action_grid = A[action]
             wolf_next_state = physics(
                 wolf_state, action_grid, env.is_state_valid)
 
-            grid_reward = ft.partial(grid_reward, env=env, const=-10)
+            grid_reward = ft.partial(grid_reward, env=env, const=-1)
             to_sheep_reward = ft.partial(
                 distance_reward, goal=sheep_states, unit=1)
             func_lst = [grid_reward, to_sheep_reward]
 
             get_reward = ft.partial(sum_rewards, func_lst=func_lst)
 
-            reward = get_reward(wolf_next_state, action)
-            done = wolf_next_state in env.terminals
+            reward = get_reward(wolf_state, action)
+            done = wolf_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
-                                                  [wolf_next_state], sheep, obstacles)
-            # plt.pause(0.1)
-            plt.close('all')
+                                                  [wolf_next_state], sheeps, obstacles)
+            plt.pause(0.1)
+            # plt.close('all')
 
             next_state_img = np.reshape(next_state_img, [1, state_size])
 
@@ -301,6 +306,7 @@ if __name__ == '__main__':
             state_img = next_state_img
 
             if done:
+                agent.update_target_model()
                 break
 
             if len(agent.memory) > batch_size:
