@@ -214,6 +214,10 @@ class DQNAgent:
         state_value = np.amax(action_values[0])
         return state_value
 
+    def get_Q(self, state):
+        action_values = self.model.predict(state)
+        return action_values[0]
+
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
         states, targets = [], []
@@ -254,7 +258,7 @@ class DQNAgent:
 
 
 if __name__ == '__main__':
-    env = GridWorld("test", nx=11, ny=11)
+    env = GridWorld("test", nx=21, ny=21)
     sheep_states = [(5, 5)]
     obstacle_states = []
     env.add_obstacles(obstacle_states)
@@ -287,8 +291,8 @@ if __name__ == '__main__':
 
             grid_reward = ft.partial(grid_reward, env=env, const=-1)
             to_sheep_reward = ft.partial(
-                distance_reward, goal=sheep_states, unit=1)
-            func_lst = [grid_reward, to_sheep_reward]
+                distance_reward, goal=sheep_states, dist_func=grid_dist, unit=1)
+            func_lst = [grid_reward]
 
             get_reward = ft.partial(sum_rewards, func_lst=func_lst)
 
@@ -296,7 +300,7 @@ if __name__ == '__main__':
             done = wolf_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheeps, obstacles)
-            plt.pause(0.1)
+            # plt.pause(0.1)
             # plt.close('all')
 
             next_state_img = np.reshape(next_state_img, [1, state_size])

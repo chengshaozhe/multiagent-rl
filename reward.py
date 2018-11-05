@@ -31,6 +31,11 @@ def l2_norm(s0, s1, rho=1):
     return np.linalg.norm(diff)
 
 
+def grid_dist(s0, s1, rho=1):
+    diff = abs(s0[0] - s1[0][0]) + abs(s0[1] - s1[0][1])
+    return diff * rho
+
+
 def distance_punish(s, a, goal=None, dist_func=l2_norm, unit=1):
     norm = dist_func(s, goal, rho=unit)
     return -100 / (norm + 1)
