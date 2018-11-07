@@ -4,6 +4,7 @@ import random
 from collections import deque
 import functools as ft
 import os
+import csv
 from PIL import Image
 from viz import *
 from reward import *
@@ -11,6 +12,7 @@ from reward import *
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
+from keras.callbacks import ModelCheckpoint
 
 
 class GridWorld():
@@ -112,13 +114,13 @@ class GridWorld():
         ax_images.update(old_ax_images)
         ax_images.update(new_ax_images)
 
-        if save_to:
-            fig_name = os.path.join(save_to, str(self.name) + ".png")
-            plt.savefig(fig_name, dpi=200)
-            if self.verbose > 0:
-                print ("saved %s" % fig_name)
-        if show:
-            plt.show()
+        # if save_to:
+        #     fig_name = os.path.join(save_to, str(self.name) + ".png")
+        #     plt.savefig(fig_name, dpi=200)
+        #     if self.verbose > 0:
+        #         print ("saved %s" % fig_name)
+        # if show:
+        #     plt.show()
 
         return ax, ax_images
 
@@ -133,14 +135,15 @@ def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
                      'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
 
     fig = ax.get_figure()
+    fig = plt.figure(
+        figsize=(image_size[0] / fig.dpi, image_size[1] / fig.dpi))
     fig.canvas.draw()
 
     image = np.fromstring(fig.canvas.tostring_rgb(),
                           dtype=np.uint8, sep='')
     image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    pil_im = Image.fromarray(image_array)
-
-    image_array = np.array(pil_im.resize(image_size, 3))
+    # pil_im = Image.fromarray(image_array)
+    # image_array = np.array(pil_im.resize(image_size, 3))
     return image_array
 
 
@@ -166,7 +169,7 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.memory = deque(maxlen=2000)
+        self.memory = deque(maxlen=20000)
         self.gamma = 0.95
         self.epsilon = 1.0
         self.epsilon_min = 0.01
@@ -214,6 +217,11 @@ class DQNAgent:
         state_value = np.amax(action_values[0])
         return state_value
 
+    def get_mean_action_values(self, state):
+        action_values = self.model.predict(state)
+        state_value = np.mean(action_values[0])
+        return state_value
+
     def get_Q(self, state):
         action_values = self.model.predict(state)
         return action_values[0]
@@ -241,7 +249,7 @@ class DQNAgent:
         loss = history.history['loss'][0]
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-        return loss
+        return history.history['loss']
 
     def load(self, name):
         self.model.load_weights(name)
@@ -249,12 +257,17 @@ class DQNAgent:
     def save(self, name):
         self.model.save_weights(name)
 
-    def __call__(self, state):
-        if np.random.rand() <= self.epsilon:
-            return random.randrange(self.action_size)
-        action_values = self.model.predict(state)
-        action_max_index = np.argmax(action_values[0])
-        return action_max_index
+    def __call__(self, state_img):
+        action_values = self.model.predict(state_img)
+        action_index_max = np.argmax(action_values[0])
+        return action_index_max
+
+
+def log_results(filename, loss_log):
+    with open('results/loss_data-' + filename + '.csv', 'w') as lf:
+        wr = csv.writer(lf)
+        for loss_item in loss_log:
+            wr.writerow(loss_item)
 
 
 if __name__ == '__main__':
@@ -270,22 +283,29 @@ if __name__ == '__main__':
     S = tuple(it.product(range(env.nx), range(env.ny)))
     A = ((1, 0), (0, 1), (-1, 0), (0, -1))
     action_size = len(A)
+
     image_size = (32, 32)
     state_size = ft.reduce(lambda x, y: x * y, image_size) * 3
-    agent = DQNAgent(state_size, action_size)
 
-    batch_size = 16
+    agent = DQNAgent(state_size, action_size)
+    # agent.load("./save/[(5, 5)]_episode_120.h5")
+
+    batch_size = 32
+    replay_start_size = 1000
     done = False
     num_opisodes = 1001
 
+    loss_log = []
     for e in range(num_opisodes):
         wolf_state = random.choice(S)
         state_img = state_to_image_array(env, image_size,
                                          [wolf_state], sheeps, obstacles)
         state_img = np.reshape(state_img, [1, state_size])
-        for time in range(500):
+        for time in range(1000):
+
             action = agent.act(state_img)
             action_grid = A[action]
+
             wolf_next_state = physics(
                 wolf_state, action_grid, env.is_state_valid)
 
@@ -293,10 +313,10 @@ if __name__ == '__main__':
             to_sheep_reward = ft.partial(
                 distance_reward, goal=sheep_states, dist_func=grid_dist, unit=1)
             func_lst = [grid_reward]
-
             get_reward = ft.partial(sum_rewards, func_lst=func_lst)
 
             reward = get_reward(wolf_state, action)
+
             done = wolf_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheeps, obstacles)
@@ -313,13 +333,11 @@ if __name__ == '__main__':
                 agent.update_target_model()
                 break
 
-            if len(agent.memory) > batch_size:
+            if len(agent.memory) > replay_start_size:
                 states_mb, targets_mb = agent.replay(batch_size)
                 loss = agent.train(states_mb, targets_mb)
 
-                if time % 10 == 0:
-                    print("episode: {}/{}, time: {}, loss: {:.4f}"
-                          .format(e, num_opisodes, time, loss))
+                loss_log.append(loss)
 
         if e % 10 == 0:
             module_path = os.path.dirname(os.path.abspath(__file__))
@@ -327,3 +345,7 @@ if __name__ == '__main__':
             name = str(sheep_states) + '_episode_' + str(e) + '.h5'
             weight_path = os.path.join(data_path, name)
             agent.save(weight_path)
+
+            filename = str(image_size) + '-' + \
+                str(batch_size) + 'episode-' + str(e)
+            log_results(filename, loss_log)
