@@ -33,12 +33,12 @@ def l2_norm(s0, s1, rho=1):
 
 def distance_punish(s, a, goal=None, dist_func=l2_norm, unit=1):
     norm = dist_func(s, goal, rho=unit)
-    return -100 / (norm)
+    return -100 / (norm + 1)
 
 
 def distance_reward(s, a, goal=None, dist_func=l2_norm, unit=1):
     norm = dist_func(s, goal, rho=unit)
-    return 100 / norm
+    return 100 / (norm + 1)
 
 
 def sigmoid_distance_punish(s, a, goal=None, dist_func=l2_norm, unit=1):

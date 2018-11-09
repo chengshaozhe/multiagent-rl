@@ -1,4 +1,5 @@
 import tensorflow as tf
+# from tensorflow import keras
 import numpy as np
 import random
 from collections import deque
@@ -7,10 +8,11 @@ import os
 from PIL import Image
 from viz import *
 from reward import *
+from keras import backend as K
 
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.optimizers import Adam
+# from keras.models import Sequential
+# from keras.layers import Dense
+# from keras.optimizers import Adam
 
 
 class GridWorld():
@@ -124,7 +126,7 @@ class GridWorld():
 
 
 def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
-    hit_wall_punish = 1
+    hit_wall_punish = -100
     wolf = {s: hit_wall_punish for s in wolf_states}
     env.add_feature_map("wolf", wolf, default=0)
     env.add_feature_map("sheep", sheeps, default=0)
@@ -145,19 +147,14 @@ def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
     return image_array
 
 
-# def grid_reward(s, a, env=None, const=-10, is_terminal=None):
-#     return const + sum(map(lambda f: env.features[f][s], env.features))
-
-
-def grid_reward(s, a, env=None, const=-1):
-    goal_reward = 500 if s in env.terminals else -1
-    obstacle_punish = - 20 if s in env.obstacles else 0
-
-    return goal_reward + obstacle_punish
+def grid_reward(s, a, env=None, const=-10, is_terminal=None):
+    return const + sum(map(lambda f: env.features[f][s], env.features))
 
 
 def physics(s, a, is_valid=None):
+
     s_n = tuple(map(sum, zip(s, a)))
+
     if is_valid(s_n):
         return s_n
     return s
@@ -168,8 +165,8 @@ class DQNAgent:
         self.state_size = state_size
         self.action_size = action_size
         self.memory = deque(maxlen=20000)
-        self.gamma = 0.95
-        self.epsilon = 1.0
+        self.gamma = 0.95    # discount rate
+        self.epsilon = 1.0  # exploration rate
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.99
         self.learning_rate = 0.001
@@ -177,24 +174,25 @@ class DQNAgent:
         self.target_model = self._build_model()
         self.update_target_model()
 
-    # def _build_model(self):
-    #     model = tf.keras.Sequential()
-    #     model.add(tf.keras.layers.Dense(
-    #         32, input_dim=self.state_size, activation='relu'))
-    #     model.add(tf.keras.layers.Dense(32, activation='relu'))
-    #     model.add(tf.keras.layers.Dense(
-    #         self.action_size, activation='linear'))
-    #     model.compile(loss='mse',
-    #                   optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate))
-    #     return model
+    def _huber_loss(self, y_true, y_pred, clip_delta=1.0):
+        error = y_true - y_pred
+        cond = K.abs(error) <= clip_delta
+
+        squared_loss = 0.5 * K.square(error)
+        quadratic_loss = 0.5 * \
+            K.square(clip_delta) + clip_delta * (K.abs(error) - clip_delta)
+
+        return K.mean(tf.where(cond, squared_loss, quadratic_loss))
 
     def _build_model(self):
-        model = Sequential()
-        model.add(Dense(32, input_dim=self.state_size, activation='relu'))
-        model.add(Dense(32, activation='relu'))
-        model.add(Dense(self.action_size, activation='linear'))
-        model.compile(loss='mse',
-                      optimizer=Adam(lr=self.learning_rate))
+        model = tf.keras.Sequential()
+        model.add(tf.keras.layers.Dense(
+            32, input_dim=self.state_size, activation='relu'))
+        model.add(tf.keras.layers.Dense(32, activation='relu'))
+        model.add(tf.keras.layers.Dense(
+            self.action_size, activation='linear'))
+        model.compile(loss=self._huber_loss,
+                      optimizer=tf.keras.optimizers.Adam(lr=self.learning_rate))
         return model
 
     def update_target_model(self):
@@ -206,34 +204,23 @@ class DQNAgent:
     def act(self, state):
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
-        action_values = self.model.predict(state)
-        action = np.argmax(action_values[0])
-        return action
+        actiton_values = self.model.predict(state)
+        return np.argmax(actiton_values[0])  # returns action
 
     def replay(self, batch_size):
         minibatch = random.sample(self.memory, batch_size)
-        states, targets = [], []
         for state, action, reward, next_state, done in minibatch:
             target = self.model.predict(state)
             if done:
                 target[0][action] = reward
             else:
+                # a = self.model.predict(next_state)[0]
                 t = self.target_model.predict(next_state)[0]
                 target[0][action] = reward + self.gamma * np.amax(t)
-
-                states.append(state[0])
-                targets.append(target[0])
-
-        states_mb = np.array(states)
-        targets_mb = np.array(targets)
-        return states_mb, targets_mb
-
-    def train(self, states_mb, targets_mb):
-        history = self.model.fit(states_mb, targets_mb, epochs=1, verbose=0)
-        loss = history.history['loss'][0]
+                # target[0][action] = reward + self.gamma * t[np.argmax(a)]
+            self.model.fit(state, target, epochs=1, verbose=0)
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
-        return loss
 
     def load(self, name):
         self.model.load_weights(name)
@@ -245,8 +232,8 @@ class DQNAgent:
         if np.random.rand() <= self.epsilon:
             return random.randrange(self.action_size)
         action_values = self.model.predict(state)
-        action_max_index = np.argmax(action_values[0])
-        return action_max_index
+        action_index = np.argmax(action_values[0])
+        return action_index
 
 
 if __name__ == '__main__':
@@ -266,7 +253,7 @@ if __name__ == '__main__':
     state_size = ft.reduce(lambda x, y: x * y, image_size) * 3
     agent = DQNAgent(state_size, action_size)
 
-    batch_size = 256
+    batch_size = 16
     done = False
     num_opisodes = 1001
 
@@ -281,7 +268,7 @@ if __name__ == '__main__':
             wolf_next_state = physics(
                 wolf_state, action_grid, env.is_state_valid)
 
-            grid_reward = ft.partial(grid_reward, env=env, const=-1)
+            grid_reward = ft.partial(grid_reward, env=env, const=-10)
             to_sheep_reward = ft.partial(
                 distance_reward, goal=sheep_states, unit=1)
             func_lst = [grid_reward, to_sheep_reward]
@@ -306,12 +293,11 @@ if __name__ == '__main__':
                 break
 
             if len(agent.memory) > batch_size:
-                states_mb, targets_mb = agent.replay(batch_size)
-                loss = agent.train(states_mb, targets_mb)
+                agent.replay(batch_size)
 
-                if time % 10 == 0:
-                    print("episode: {}/{}, time: {}, loss: {:.4f}"
-                          .format(e, num_opisodes, time, loss))
+                if time % 2 == 0:
+                    print("episode: {}/{}, time: {}, reward: {:.4f}"
+                          .format(e, num_opisodes, time, reward))
 
         if e % 10 == 0:
             module_path = os.path.dirname(os.path.abspath(__file__))
