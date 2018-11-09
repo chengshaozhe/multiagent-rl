@@ -118,16 +118,16 @@ class GridWorld():
         return ax, ax_images
 
 
-def state_to_image_array(env, wolf_states, sheep_states, obstacle_states):
-    wolf = {s: 10 for s in wolf_states}
-    sheep = {s: 100 for s in sheep_states}
-    obstacles = {s: -10 for s in obstacle_states}
+def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
+    hit_wall_punish = -100
+    wolf = {s: hit_wall_punish for s in wolf_states}
     env.add_feature_map("wolf", wolf, default=0)
-    env.add_feature_map("sheep", sheep, default=0)
+    env.add_feature_map("sheep", sheeps, default=0)
     env.add_feature_map("obstacle", obstacles, default=0)
 
     ax, _ = env.draw(features=("wolf", "sheep", "obstacle"), colors={
                      'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
+
     fig = ax.get_figure()
     fig.canvas.draw()
 
@@ -136,8 +136,7 @@ def state_to_image_array(env, wolf_states, sheep_states, obstacle_states):
     image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
     pil_im = Image.fromarray(image_array)
 
-    image_array = np.array(pil_im.resize((84, 84), 3))
-
+    image_array = np.array(pil_im.resize(image_size, 3))
     return image_array
 
 

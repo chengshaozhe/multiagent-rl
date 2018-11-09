@@ -283,24 +283,24 @@ if __name__ == '__main__':
     S = tuple(it.product(range(env.nx), range(env.ny)))
     A = ((1, 0), (0, 1), (-1, 0), (0, -1))
     action_size = len(A)
-
     image_size = (32, 32)
     state_size = ft.reduce(lambda x, y: x * y, image_size) * 3
 
     agent = DQNAgent(state_size, action_size)
     # agent.load("./save/[(5, 5)]_episode_120.h5")
+    loss_log = []
 
     batch_size = 32
     replay_start_size = 1000
-    done = False
     num_opisodes = 1001
+    done = False
 
-    loss_log = []
     for e in range(num_opisodes):
         wolf_state = random.choice(S)
         state_img = state_to_image_array(env, image_size,
                                          [wolf_state], sheeps, obstacles)
         state_img = np.reshape(state_img, [1, state_size])
+        plt.pause(0.1)
         for time in range(1000):
 
             action = agent.act(state_img)
@@ -320,7 +320,6 @@ if __name__ == '__main__':
             done = wolf_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheeps, obstacles)
-            # plt.pause(0.1)
             # plt.close('all')
 
             next_state_img = np.reshape(next_state_img, [1, state_size])

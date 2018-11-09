@@ -28,7 +28,7 @@ class ValueIteration():
             V = V_init.copy()
             for s in S:
                 V_init[s] = max([sum([p * (R[s][a] + gamma * V[s_n])
-                                      for (s_n, p) in T[s][a].iteritems()]) for a in A])
+                                      for (s_n, p) in T[s][a].items()]) for a in A])
 
             delta = max(delta, abs(V_init[s] - V[s]))
             if delta < epsilon * (1 - gamma) / gamma:
@@ -110,9 +110,9 @@ def follow_policy(s=(), state_sampler=None, action_sampler=None,
         sn = state_sampler(s, a)
         if is_invalid:
             if is_invalid(sn):
-                print "terminal state! "
+                print ("terminal state! ")
                 break
-        print s, a, sn
+        print (s, a, sn)
         s = sn
 
 
@@ -176,4 +176,4 @@ if __name__ == '__main__':
     # Q_dict = {s: {a: Q[si, ai] for (ai, a) in enumerate(A)}
     #           for (si, s) in enumerate(S)}
 
-    print V
+    print (V)
