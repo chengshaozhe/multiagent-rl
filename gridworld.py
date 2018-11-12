@@ -92,7 +92,7 @@ class GridWorld():
         return {f: update_single_feature(f) for f in features}
 
     def draw(self, ax=None, ax_images={}, features=[], colors={},
-             masked_values={}, default_masked=0, show=True, save_to=''):
+             masked_values={}, default_masked=0, show=False, save_to=''):
 
         plt.cla()
         if ax:
@@ -107,56 +107,19 @@ class GridWorld():
         ax_images.update(old_ax_images)
         ax_images.update(new_ax_images)
 
-        if save_to:
-            fig_name = os.path.join(save_to, str(self.name) + ".png")
-            plt.savefig(fig_name, dpi=200)
-            if self.verbose > 0:
-                print ("saved %s" % fig_name)
-        if show:
-            plt.show()
+        # if save_to:
+        #     fig_name = os.path.join(save_to, str(self.name) + ".png")
+        #     plt.savefig(fig_name, dpi=200)
+        #     if self.verbose > 0:
+        #         print ("saved %s" % fig_name)
+        # if show:
+        #     plt.show()
 
         return ax, ax_images
 
 
-def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
-    hit_wall_punish = -100
-    wolf = {s: hit_wall_punish for s in wolf_states}
-    env.add_feature_map("wolf", wolf, default=0)
-    env.add_feature_map("sheep", sheeps, default=0)
-    env.add_feature_map("obstacle", obstacles, default=0)
-
-    ax, _ = env.draw(features=("wolf", "sheep", "obstacle"), colors={
-                     'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
-
-    fig = ax.get_figure()
-    fig.canvas.draw()
-
-    image = np.fromstring(fig.canvas.tostring_rgb(),
-                          dtype=np.uint8, sep='')
-    image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    pil_im = Image.fromarray(image_array)
-
-    image_array = np.array(pil_im.resize(image_size, 3))
-    return image_array
-
-
-def grid_transition(s, a, is_valid=None, terminals=()):
-    if s in terminals:
-        return {s: 1}
-    s_n = tuple(map(sum, zip(s, a)))
-    if is_valid(s_n):
-        return {s_n: 1}
-    return {s: 1}
-
-
-def get_reward(s, a, env=None, const=-1, is_terminal=None):
-    return const + sum(map(lambda f: env.features[f][s], env.features))
-
-
 def physics(s, a, is_valid=None):
-
     s_n = tuple(map(sum, zip(s, a)))
-
     if is_valid(s_n):
         return s_n
     return s

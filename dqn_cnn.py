@@ -136,15 +136,20 @@ def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
                      'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
 
     fig = ax.get_figure()
-    fig = plt.figure(
-        figsize=(image_size[0] / fig.dpi, image_size[1] / fig.dpi))
+    # fig = plt.figure(
+    #     figsize=(image_size[0] / fig.dpi, image_size[1] / fig.dpi))
+
     fig.canvas.draw()
 
     image = np.fromstring(fig.canvas.tostring_rgb(),
                           dtype=np.uint8, sep='')
     image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    # pil_im = Image.fromarray(mage_array)
-    # image_array = np.array(pil_im.resize(image_size, 3))
+
+    pil_im = Image.fromarray(image_array)
+    image_array = np.array(pil_im.resize(image_size[:2], 3))
+
+    # print (image_array.shape)
+    # print (len(np.unique(image_array)))
     return image_array
 
 
@@ -363,10 +368,12 @@ if __name__ == '__main__':
                 states_mb, targets_mb = agent.replay(batch_size)
                 loss = agent.train(states_mb, targets_mb)
 
-                print("episode: {}/{}, time: {}, loss: {:.4f}"
-                      .format(e, num_opisodes, time, loss[0]))
+                if time % 10 == 0:
 
-                loss_log.append(loss)
+                    print("episode: {}/{}, time: {}, loss: {:.4f}"
+                          .format(e, num_opisodes, time, loss[0]))
+
+                    loss_log.append(loss)
 
         if e % 10 == 0:
             module_path = os.path.dirname(os.path.abspath(__file__))
@@ -378,3 +385,4 @@ if __name__ == '__main__':
             filename = str(image_size) + '-' + \
                 str(batch_size) + 'episode-' + str(e)
             log_results(filename, loss_log)
+            loss_log = []

@@ -13,6 +13,7 @@ from keras.models import Sequential
 from keras.layers import Dense, Conv2D, MaxPooling2D, Flatten
 from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
+from keras import backend as K
 
 
 class GridWorld():
@@ -135,15 +136,24 @@ def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
                      'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
 
     fig = ax.get_figure()
-    fig = plt.figure(
-        figsize=(image_size[0] / fig.dpi, image_size[1] / fig.dpi))
+    # fig = plt.figure(
+    #     figsize=(image_size[0] / fig.dpi, image_size[1] / fig.dpi))
+
     fig.canvas.draw()
 
     image = np.fromstring(fig.canvas.tostring_rgb(),
                           dtype=np.uint8, sep='')
     image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    # pil_im = Image.fromarray(image_array)
-    # image_array = np.array(pil_im.resize(image_size, 3))
+    print (len(np.unique(image_array)))
+
+    pil_im = Image.fromarray(image_array)
+    image_array = np.array(pil_im.resize(image_size, 3))
+
+    # (Image.fromarray(image_array)).show()
+    # print (image_array.shape)
+    # print (len(np.unique(image_array)))
+    # print (image_array.shape)
+
     return image_array
 
 
@@ -167,7 +177,6 @@ class DQNAgent:
     def __init__(self, state_size, action_size):
         self.state_size = state_size
         self.action_size = action_size
-        self.input_shape = (21, 21, 3)
         self.memory = deque(maxlen=20000)
         self.gamma = 0.95
         self.epsilon = 1.0
@@ -177,6 +186,16 @@ class DQNAgent:
         self.model = self._build_model()
         self.target_model = self._build_model()
         self.update_target_model()
+
+    def _huber_loss(self, y_true, y_pred, clip_delta=1.0):
+        error = y_true - y_pred
+        cond = K.abs(error) <= clip_delta
+
+        squared_loss = 0.5 * K.square(error)
+        quadratic_loss = 0.5 * \
+            K.square(clip_delta) + clip_delta * (K.abs(error) - clip_delta)
+
+        return K.mean(tf.where(cond, squared_loss, quadratic_loss))
 
     # def _build_model(self):
     #     model = tf.keras.Sequential()
@@ -194,7 +213,7 @@ class DQNAgent:
         model.add(Dense(32, input_dim=self.state_size, activation='relu'))
         model.add(Dense(32, activation='relu'))
         model.add(Dense(self.action_size, activation='linear'))
-        model.compile(loss='mse',
+        model.compile(loss=self._huber_loss,
                       optimizer=Adam(lr=self.learning_rate))
         return model
 
@@ -282,7 +301,7 @@ if __name__ == '__main__':
     S = tuple(it.product(range(env.nx), range(env.ny)))
     A = ((1, 0), (0, 1), (-1, 0), (0, -1))
     action_size = len(A)
-    image_size = (32, 32)
+    image_size = (21, 21)
     state_size = ft.reduce(lambda x, y: x * y, image_size) * 3
 
     agent = DQNAgent(state_size, action_size)
@@ -290,7 +309,7 @@ if __name__ == '__main__':
     loss_log = []
 
     batch_size = 32
-    replay_start_size = 100
+    replay_start_size = 1000
     num_opisodes = 1001
     done = False
 
@@ -318,7 +337,7 @@ if __name__ == '__main__':
             done = wolf_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheeps, obstacles)
-            plt.pause(0.1)
+            # plt.pause(0.1)
             plt.close('all')
 
             next_state_img = np.reshape(next_state_img, [1, state_size])
@@ -334,8 +353,12 @@ if __name__ == '__main__':
             if len(agent.memory) > replay_start_size:
                 states_mb, targets_mb = agent.replay(batch_size)
                 loss = agent.train(states_mb, targets_mb)
+                if time % 10 == 0:
 
-                loss_log.append(loss)
+                    print("episode: {}/{}, time: {}, loss: {:.4f}"
+                          .format(e, num_opisodes, time, loss[0]))
+
+                    loss_log.append(loss)
 
         if e % 10 == 0:
             module_path = os.path.dirname(os.path.abspath(__file__))
@@ -347,3 +370,4 @@ if __name__ == '__main__':
             filename = str(image_size) + '-' + \
                 str(batch_size) + 'episode-' + str(e)
             log_results(filename, loss_log)
+            loss_log = []
