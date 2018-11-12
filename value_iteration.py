@@ -14,6 +14,15 @@ import pandas as pd
 from gridworld import *
 
 
+def grid_transition(s, a, is_valid=None, terminals=()):
+    if s in terminals:
+        return {s: 1}
+    s_n = tuple(map(sum, zip(s, a)))
+    if is_valid(s_n):
+        return {s_n: 1}
+    return {s: 1}
+
+
 class ValueIteration():
     def __init__(self, gamma, epsilon=0.001, max_iter=100):
         self.gamma = gamma
