@@ -136,15 +136,14 @@ def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
                      'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
 
     fig = ax.get_figure()
-    # fig = plt.figure(
-    #     figsize=(image_size[0] / fig.dpi, image_size[1] / fig.dpi))
-
+    # fig.set_size_inches((image_size[0] / fig.dpi, image_size[1] / fig.dpi)) # direct resize
     fig.canvas.draw()
 
     image = np.fromstring(fig.canvas.tostring_rgb(),
                           dtype=np.uint8, sep='')
     image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
 
+# use PIL to resize
     pil_im = Image.fromarray(image_array)
     image_array = np.array(pil_im.resize(image_size[:2], 3))
 

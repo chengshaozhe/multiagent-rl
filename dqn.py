@@ -136,29 +136,28 @@ def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
                      'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
 
     fig = ax.get_figure()
-    # fig = plt.figure(
-    #     figsize=(image_size[0] / fig.dpi, image_size[1] / fig.dpi))
-
+# dpi * size_ince = image_size
+    # fig.set_size_inches((image_size[0] / fig.dpi, image_size[1] / fig.dpi)) # direct resize
     fig.canvas.draw()
 
     image = np.fromstring(fig.canvas.tostring_rgb(),
                           dtype=np.uint8, sep='')
-    image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-    print (len(np.unique(image_array)))
 
+    image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+# use PIL to resize
     pil_im = Image.fromarray(image_array)
     image_array = np.array(pil_im.resize(image_size, 3))
 
     # (Image.fromarray(image_array)).show()
     # print (image_array.shape)
     # print (len(np.unique(image_array)))
-    # print (image_array.shape)
 
     return image_array
 
 
 # def grid_reward(s, a, env=None, const=-10, is_terminal=None):
 #     return const + sum(map(lambda f: env.features[f][s], env.features))
+
 
 def grid_reward(s, a, env=None, const=-1):
     goal_reward = env.features['sheep'][s] if s in env.terminals else const
@@ -337,7 +336,7 @@ if __name__ == '__main__':
             done = wolf_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheeps, obstacles)
-            # plt.pause(0.1)
+            plt.pause(0.1)
             plt.close('all')
 
             next_state_img = np.reshape(next_state_img, [1, state_size])
