@@ -118,8 +118,45 @@ class GridWorld():
         return ax, ax_images
 
 
-def physics(s, a, is_valid=None):
+def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
+    wolf = {s: 1 for s in wolf_states}
+    env.add_feature_map("wolf", wolf, default=0)
+    env.add_feature_map("sheep", sheeps, default=0)
+    env.add_feature_map("obstacle", obstacles, default=0)
+
+    ax, _ = env.draw(features=("wolf", "sheep", "obstacle"), colors={
+                     'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
+
+    fig = ax.get_figure()
+    # fig.set_size_inches((image_size[0] / fig.dpi, image_size[1] / fig.dpi)) # direct resize
+    fig.canvas.draw()
+
+    image = np.fromstring(fig.canvas.tostring_rgb(),
+                          dtype=np.uint8, sep='')
+    image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+
+# use PIL to resize
+    pil_im = Image.fromarray(image_array)
+    image_array = np.array(pil_im.resize(image_size[:2], 3))
+
+    # print (image_array.shape)
+    # print (len(np.unique(image_array)))
+    return image_array
+
+# def grid_reward(s, a, env=None, const=-10, is_terminal=None):
+#     return const + sum(map(lambda f: env.features[f][s], env.features))
+
+
+def grid_reward(s, a, env=None, const=-1):
+    goal_reward = env.features['sheep'][s] if s in env.terminals else const
+    obstacle_punish = env.features['obstacle'][s] if s in env.obstacles else 0
+    return goal_reward + obstacle_punish
+
+
+def physics(s, a, env=None):
+    if s in env.terminals:
+        return s
     s_n = tuple(map(sum, zip(s, a)))
-    if is_valid(s_n):
+    if env.is_state_valid(s_n):
         return s_n
     return s

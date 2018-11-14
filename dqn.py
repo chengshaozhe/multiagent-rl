@@ -6,8 +6,6 @@ import functools as ft
 import os
 import csv
 from PIL import Image
-from viz import *
-from reward import *
 
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, MaxPooling2D, Flatten
@@ -15,161 +13,9 @@ from keras.optimizers import Adam
 from keras.callbacks import ModelCheckpoint
 from keras import backend as K
 
-
-class GridWorld():
-    def __init__(self, name='', nx=None, ny=None):
-        self.name = name
-        self.nx = nx
-        self.ny = ny
-        self.coordinates = tuple(it.product(range(self.nx), range(self.ny)))
-        self.terminals = []
-        self.obstacles = []
-        self.features = co.OrderedDict()
-
-    def add_terminals(self, terminals=[]):
-        for t in terminals:
-            self.terminals.append(t)
-
-    def add_obstacles(self, obstacles=[]):
-        for o in obstacles:
-            self.obstacles.append(o)
-
-    def add_feature_map(self, name, state_values, default=0):
-        self.features[name] = {s: default for s in self.coordinates}
-        self.features[name].update(state_values)
-
-    def is_state_valid(self, state):
-        if state[0] not in range(self.nx):
-            return False
-        if state[1] not in range(self.ny):
-            return False
-        if state in self.obstacles:
-            return False
-        return True
-
-    def reward(self, s, a, s_n, W={}):
-        if not W:
-            return sum(map(lambda f: self.features[f][s_n], self.features))
-        return sum(map(lambda f: self.features[f][s_n] * W[f], W.keys()))
-
-    def draw_feature(self, ax, name, **kwargs):
-        I = dict_to_array(self.features[name])
-        return draw_2D_array(I, ax, **kwargs)
-
-    def draw_features_first_time(self, ax, features=[], colors={},
-                                 masked_values={}, default_masked=0):
-        assert set(features).issubset(set(self.features.keys()))
-
-        if not features:
-            features = self.features.keys()
-        if len(features) > len(color_set):
-            raise ValueError("there are %d features and only %d colors"
-                             % (len(features), len(color_set)))
-
-        free_color = list(filter(lambda c: c not in colors.values(),
-                                 color_set))
-        colors.update({f: free_color.pop(0)
-                       for f in features if f not in colors.keys()})
-        masked_values.update({f: default_masked
-                              for f in features if f not in masked_values.keys()})
-
-        assert set(masked_values.keys()) == set(colors.keys()) == set(features)
-
-        if not ax:
-            fig, ax = plt.subplots(1, 1, tight_layout=True)
-
-        def single_feature(ax, name):
-            f_color = colors[name]
-            masked_value = masked_values[name]
-
-            return self.draw_feature(ax, name, f_color=f_color,
-                                     masked_value=masked_value)
-
-        ax_images = {f: single_feature(ax, f) for f in features}
-        return ax, ax_images
-
-    def update_features_images(self, ax_images, features=[], masked_values={},
-                               default_masked=0):
-        def update_single_feature(name):
-            try:
-                masked_value = masked_values[name]
-            except:
-                masked_value = default_masked
-            I = dict_to_array(self.features[name])
-            return update_axes_image(ax_images[name], I, masked_value)
-        return {f: update_single_feature(f) for f in features}
-
-    def draw(self, ax=None, ax_images={}, features=[], colors={},
-             masked_values={}, default_masked=0, show=False, save_to=''):
-
-        plt.cla()
-        if ax:
-            ax.get_figure()
-        new_features = [f for f in features if f not in ax_images.keys()]
-        old_features = [f for f in features if f in ax_images.keys()]
-        ax, new_ax_images = self.draw_features_first_time(ax, new_features,
-                                                          colors, masked_values, default_masked=0)
-        old_ax_images = self.update_features_images(ax_images, old_features,
-                                                    masked_values,
-                                                    default_masked=0)
-        ax_images.update(old_ax_images)
-        ax_images.update(new_ax_images)
-
-        # if save_to:
-        #     fig_name = os.path.join(save_to, str(self.name) + ".png")
-        #     plt.savefig(fig_name, dpi=200)
-        #     if self.verbose > 0:
-        #         print ("saved %s" % fig_name)
-        # if show:
-        #     plt.show()
-
-        return ax, ax_images
-
-
-def state_to_image_array(env, image_size, wolf_states, sheeps, obstacles):
-    wolf = {s: 1 for s in wolf_states}
-    env.add_feature_map("wolf", wolf, default=0)
-    env.add_feature_map("sheep", sheeps, default=0)
-    env.add_feature_map("obstacle", obstacles, default=0)
-
-    ax, _ = env.draw(features=("wolf", "sheep", "obstacle"), colors={
-                     'wolf': 'r', 'sheep': 'g', 'obstacle': 'y'})
-
-    fig = ax.get_figure()
-# dpi * size_ince = image_size
-    # fig.set_size_inches((image_size[0] / fig.dpi, image_size[1] / fig.dpi)) # direct resize
-    fig.canvas.draw()
-
-    image = np.fromstring(fig.canvas.tostring_rgb(),
-                          dtype=np.uint8, sep='')
-
-    image_array = image.reshape(fig.canvas.get_width_height()[::-1] + (3,))
-# use PIL to resize
-    pil_im = Image.fromarray(image_array)
-    image_array = np.array(pil_im.resize(image_size, 3))
-
-    # (Image.fromarray(image_array)).show()
-    # print (image_array.shape)
-    # print (len(np.unique(image_array)))
-
-    return image_array
-
-
-# def grid_reward(s, a, env=None, const=-10, is_terminal=None):
-#     return const + sum(map(lambda f: env.features[f][s], env.features))
-
-
-def grid_reward(s, a, env=None, const=-1):
-    goal_reward = env.features['sheep'][s] if s in env.terminals else const
-    obstacle_punish = env.features['obstacle'][s] if s in env.obstacles else 0
-    return goal_reward + obstacle_punish
-
-
-def physics(s, a, is_valid=None):
-    s_n = tuple(map(sum, zip(s, a)))
-    if is_valid(s_n):
-        return s_n
-    return s
+from viz import *
+from reward import *
+from gridworld import *
 
 
 class DQNAgent:
@@ -309,7 +155,7 @@ if __name__ == '__main__':
 
     batch_size = 32
     replay_start_size = 1000
-    num_opisodes = 1001
+    num_opisodes = 1000
     done = False
 
     for e in range(num_opisodes):
@@ -324,7 +170,7 @@ if __name__ == '__main__':
             action_grid = A[action]
 
             wolf_next_state = physics(
-                wolf_state, action_grid, env.is_state_valid)
+                wolf_state, action_grid, env)
 
             grid_reward = ft.partial(grid_reward, env=env, const=-1)
             to_sheep_reward = ft.partial(
@@ -333,7 +179,7 @@ if __name__ == '__main__':
             get_reward = ft.partial(sum_rewards, func_lst=func_lst)
 
             reward = get_reward(wolf_state, action)
-            done = wolf_state in env.terminals
+            done = wolf_next_state in env.terminals
             next_state_img = state_to_image_array(env, image_size,
                                                   [wolf_next_state], sheeps, obstacles)
             plt.pause(0.1)
